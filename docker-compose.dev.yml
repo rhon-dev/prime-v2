@@ -5,10 +5,14 @@
 # This file MUST NOT be used in staging or production.
 #
 # Usage:
-#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 #
-# This file exposes database and MinIO ports locally so developers
-# can connect with pgAdmin, DBeaver, or the MinIO console browser UI.
+# Overrides:
+# - prime-backend / prime-frontend build against the `builder` stage of
+#   their Dockerfiles (has devDependencies + full source) instead of the
+#   production runtime stage, and mount local src/ for hot reload.
+# - prime-postgres / prime-minio get host port mappings for local
+#   inspection (pgAdmin, DBeaver, MinIO console) — not used in prod.
 # ─────────────────────────────────────────────────────────
 
 services:
@@ -26,11 +30,19 @@ services:
     # Log in with MINIO_ACCESS_KEY / MINIO_SECRET_KEY from .env
 
   prime-backend:
-    # In dev, rebuild on source changes via a watcher (e.g. ts-node-dev)
-    # The command override below assumes a dev start script is defined
-    # in apps/backend/package.json as "dev"
-    command: npm run dev
+    build:
+      target: builder
+    command: npx tsx watch src/server.ts
     volumes:
-      - ./apps/backend/src:/app/src:ro
+      - ./apps/backend/src:/app/src
     environment:
       NODE_ENV: development
+
+  prime-frontend:
+    build:
+      target: builder
+    command: npm run dev -- --host 0.0.0.0
+    volumes:
+      - ./apps/frontend/src:/app/src
+    ports:
+      - "5173:5173"
