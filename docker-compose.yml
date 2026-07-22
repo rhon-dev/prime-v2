@@ -8,6 +8,14 @@ services:
       context: ./apps/frontend
       dockerfile: Dockerfile
     container_name: prime-frontend
+    # restart: unless-stopped fires on process crashes, OOM kills, and
+    # unhandled exits — i.e. the real production failure modes. It does NOT
+    # restart after `docker kill` / `docker compose kill`, which Docker treats
+    # as an operator-intentional stop. This is correct Docker behavior, not a
+    # misconfiguration. Under Coolify, container lifecycle is managed by the
+    # Coolify agent on top of Docker; Coolify's own watchdog handles recovery
+    # independently of this policy — verify with `coolify logs` if a service
+    # appears stopped in the Coolify dashboard.
     restart: unless-stopped
     networks:
       - prime-internal
@@ -33,6 +41,7 @@ services:
       context: ./apps/backend
       dockerfile: Dockerfile
     container_name: prime-backend
+    # See restart note on prime-frontend above — same policy applies here.
     restart: unless-stopped
     env_file:
       - .env
@@ -77,6 +86,7 @@ services:
   prime-postgres:
     image: postgres:16-alpine
     container_name: prime-postgres
+    # See restart note on prime-frontend above — same policy applies here.
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-primev2}
@@ -102,6 +112,7 @@ services:
   prime-minio:
     image: minio/minio:latest
     container_name: prime-minio
+    # See restart note on prime-frontend above — same policy applies here.
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
