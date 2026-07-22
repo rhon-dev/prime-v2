@@ -1,6 +1,20 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
+// ── Production guard ──────────────────────────────────────────────────────────
+// This script creates dev test accounts with known passwords. Running it
+// against a production database would create working credentials an attacker
+// could use to log in. Refuse to run in production — hard fail, not a warning.
+if (process.env.NODE_ENV === "production") {
+  console.error(
+    "ERROR: Refusing to run seed script in NODE_ENV=production.\n" +
+    "Dev test accounts must never be created in production.\n" +
+    "If you need to populate roles/workflow definitions in production, use a\n" +
+    "dedicated, secret-free migration script instead.",
+  );
+  process.exit(1);
+}
+
 const prisma = new PrismaClient();
 
 const ROLES: Array<{ code: string; name: string; description: string }> = [
