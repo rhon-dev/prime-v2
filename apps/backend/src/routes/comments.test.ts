@@ -337,7 +337,7 @@ describe("Comments routes", () => {
   });
 
   // ── TC-CMT-01 ──────────────────────────────────────────────────────────────
-  it("TC-CMT-01: Staff user creates PUBLIC comment → 201 with { id, commentType, visibility, body, createdAt }", async () => {
+  it("TC-CMT-01: Staff user creates APPLICANT_VISIBLE comment → 201 with correct visibility", async () => {
     const focalCookie = await createStaffSession(app, "cmt-focal@test.local", "PROJECT_FOCAL").catch(async () => {
       // Already created in beforeAll — just login
       const resp = await app.inject({
@@ -355,8 +355,8 @@ describe("Comments routes", () => {
       headers: { cookie: focalCookie },
       payload: {
         commentType: "GENERAL",
-        visibility: "PUBLIC",
-        body: "This is a public comment from staff.",
+        visibility: "APPLICANT_VISIBLE",
+        body: "This is an applicant-visible comment from staff.",
       },
     });
 
@@ -370,13 +370,13 @@ describe("Comments routes", () => {
     };
     expect(body.id).toBeDefined();
     expect(body.commentType).toBe("GENERAL");
-    expect(body.visibility).toBe("PUBLIC");
-    expect(body.body).toBe("This is a public comment from staff.");
+    expect(body.visibility).toBe("APPLICANT_VISIBLE");
+    expect(body.body).toBe("This is an applicant-visible comment from staff.");
     expect(typeof body.createdAt).toBe("string");
   });
 
   // ── TC-CMT-02 ──────────────────────────────────────────────────────────────
-  it("TC-CMT-02: APPLICANT tries to create INTERNAL comment → 403", async () => {
+  it("TC-CMT-02: APPLICANT tries to create FOCAL_AND_INTERNAL comment → 403", async () => {
     const ownerCookie = await loginApplicant(app, ownerUserId);
 
     const response = await app.inject({
@@ -385,7 +385,7 @@ describe("Comments routes", () => {
       headers: { cookie: ownerCookie },
       payload: {
         commentType: "GENERAL",
-        visibility: "INTERNAL",
+        visibility: "FOCAL_AND_INTERNAL",
         body: "This should be forbidden.",
       },
     });
@@ -393,8 +393,8 @@ describe("Comments routes", () => {
     expect(response.statusCode).toBe(403);
   });
 
-  // ── TC-CMT-03 ──────────────────────────────────────────────────────────────
-  it("TC-CMT-03: APPLICANT creates PUBLIC comment → 201", async () => {
+  // ── TC-CMT-02b ─────────────────────────────────────────────────────────────
+  it("TC-CMT-02b: APPLICANT tries to create ADMIN_AUDIT_ONLY comment → 403", async () => {
     const ownerCookie = await loginApplicant(app, ownerUserId);
 
     const response = await app.inject({
@@ -403,14 +403,32 @@ describe("Comments routes", () => {
       headers: { cookie: ownerCookie },
       payload: {
         commentType: "GENERAL",
-        visibility: "PUBLIC",
-        body: "Applicant's public comment.",
+        visibility: "ADMIN_AUDIT_ONLY",
+        body: "This should also be forbidden.",
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  // ── TC-CMT-03 ──────────────────────────────────────────────────────────────
+  it("TC-CMT-03: APPLICANT creates APPLICANT_VISIBLE comment → 201", async () => {
+    const ownerCookie = await loginApplicant(app, ownerUserId);
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/api/proposals/${sharedProposalId}/comments`,
+      headers: { cookie: ownerCookie },
+      payload: {
+        commentType: "GENERAL",
+        visibility: "APPLICANT_VISIBLE",
+        body: "Applicant's visible comment.",
       },
     });
 
     expect(response.statusCode).toBe(201);
     const body = response.json() as { visibility: string };
-    expect(body.visibility).toBe("PUBLIC");
+    expect(body.visibility).toBe("APPLICANT_VISIBLE");
   });
 
   // ── TC-CMT-04 ──────────────────────────────────────────────────────────────
@@ -423,7 +441,7 @@ describe("Comments routes", () => {
       headers: { cookie: ownerCookie },
       payload: {
         commentType: "FIELD",
-        visibility: "PUBLIC",
+        visibility: "APPLICANT_VISIBLE",
         body: "Missing targetFieldId.",
         // no targetFieldId
       },
@@ -442,7 +460,7 @@ describe("Comments routes", () => {
       headers: { cookie: ownerCookie },
       payload: {
         commentType: "SECTION",
-        visibility: "PUBLIC",
+        visibility: "APPLICANT_VISIBLE",
         body: "Missing targetSectionId.",
         // no targetSectionId
       },
@@ -452,8 +470,8 @@ describe("Comments routes", () => {
   });
 
   // ── TC-CMT-06 ──────────────────────────────────────────────────────────────
-  it("TC-CMT-06: GET comments as APPLICANT → only PUBLIC comments returned, no INTERNAL", async () => {
-    // First seed an INTERNAL comment directly in DB (bypassing the route, since applicant can't create one)
+  it("TC-CMT-06: GET comments as APPLICANT → only APPLICANT_VISIBLE comments returned", async () => {
+    // Seed a FOCAL_AND_INTERNAL comment directly in DB
     const proposal = await db.proposal.findUniqueOrThrow({ where: { id: sharedProposalId } });
     const internalComment = await db.proposalComment.create({
       data: {
@@ -461,7 +479,7 @@ describe("Comments routes", () => {
         proposalVersionId: proposal.currentVersionId!,
         authorUserId: ownerUserId,
         commentType: "GENERAL",
-        visibility: "INTERNAL",
+        visibility: "FOCAL_AND_INTERNAL",
         body: "Internal comment for TC-CMT-06",
         isResolved: false,
       },
@@ -477,26 +495,40 @@ describe("Comments routes", () => {
     expect(response.statusCode).toBe(200);
     const comments = response.json() as Array<{ id: string; visibility: string }>;
 
-    // Must not contain any INTERNAL comment
-    const internalFound = comments.find((c) => c.visibility === "INTERNAL");
-    expect(internalFound).toBeUndefined();
+    // Applicant must not see FOCAL_AND_INTERNAL or any non-APPLICANT_VISIBLE tier
+    const leaked = comments.find(
+      (c) => c.visibility !== "APPLICANT_VISIBLE",
+    );
+    expect(leaked).toBeUndefined();
 
-    // Cleanup: remove the seeded internal comment
+    // Cleanup
     await db.proposalComment.delete({ where: { id: internalComment.id } });
   });
 
   // ── TC-CMT-07 ──────────────────────────────────────────────────────────────
-  it("TC-CMT-07: GET comments as staff → includes both PUBLIC and INTERNAL comments", async () => {
-    // Seed an INTERNAL comment
+  it("TC-CMT-07: GET comments as PROJECT_FOCAL → includes APPLICANT_VISIBLE and FOCAL_AND_INTERNAL, not RTEC_PRIVATE", async () => {
     const proposal = await db.proposal.findUniqueOrThrow({ where: { id: sharedProposalId } });
-    const internalComment = await db.proposalComment.create({
+
+    // Seed one comment per relevant tier
+    const focalInternal = await db.proposalComment.create({
       data: {
         proposalId: sharedProposalId,
         proposalVersionId: proposal.currentVersionId!,
         authorUserId: ownerUserId,
         commentType: "GENERAL",
-        visibility: "INTERNAL",
-        body: "Internal comment for TC-CMT-07",
+        visibility: "FOCAL_AND_INTERNAL",
+        body: "Focal-internal comment for TC-CMT-07",
+        isResolved: false,
+      },
+    });
+    const rtecPrivate = await db.proposalComment.create({
+      data: {
+        proposalId: sharedProposalId,
+        proposalVersionId: proposal.currentVersionId!,
+        authorUserId: ownerUserId,
+        commentType: "GENERAL",
+        visibility: "RTEC_PRIVATE",
+        body: "RTEC-private comment for TC-CMT-07",
         isResolved: false,
       },
     });
@@ -518,13 +550,15 @@ describe("Comments routes", () => {
     expect(response.statusCode).toBe(200);
     const comments = response.json() as Array<{ id: string; visibility: string }>;
 
-    // Staff should see INTERNAL comments
-    const internalFound = comments.find((c) => c.id === internalComment.id);
-    expect(internalFound).toBeDefined();
-    expect(internalFound?.visibility).toBe("INTERNAL");
+    // Focal can see FOCAL_AND_INTERNAL
+    expect(comments.find((c) => c.id === focalInternal.id)).toBeDefined();
+    // Focal cannot see RTEC_PRIVATE
+    expect(comments.find((c) => c.id === rtecPrivate.id)).toBeUndefined();
 
     // Cleanup
-    await db.proposalComment.delete({ where: { id: internalComment.id } });
+    await db.proposalComment.deleteMany({
+      where: { id: { in: [focalInternal.id, rtecPrivate.id] } },
+    });
   });
 
   // ── TC-CMT-08 ──────────────────────────────────────────────────────────────
@@ -538,7 +572,7 @@ describe("Comments routes", () => {
       headers: { cookie: ownerCookie },
       payload: {
         commentType: "GENERAL",
-        visibility: "PUBLIC",
+        visibility: "APPLICANT_VISIBLE",
         body: "Comment to resolve for TC-CMT-08.",
       },
     });

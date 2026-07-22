@@ -2,8 +2,22 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { Proposal } from "@prisma/client";
 import { prisma } from "../db/client.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, getAllowedCommentVisibilities } from "../middleware/auth.js";
 import { auditLog } from "../services/auditLog.js";
+
+// ── Visibility tiers (must match VISIBILITY_BY_ROLE in middleware/auth.ts) ───
+// Confirmed mapping (2026-07-22):
+//   Legacy "PUBLIC"   → "APPLICANT_VISIBLE"
+//   Legacy "INTERNAL" → "FOCAL_AND_INTERNAL"
+const COMMENT_VISIBILITIES = [
+  "APPLICANT_VISIBLE",
+  "FOCAL_AND_INTERNAL",
+  "RTEC_PRIVATE",
+  "RTEC_HEAD_ONLY",
+  "OFFICIAL_WORKFLOW",
+  "ADMIN_AUDIT_ONLY",
+] as const;
+type CommentVisibility = (typeof COMMENT_VISIBILITIES)[number];
 
 // ── Access helper (same pattern as proposals.ts) ─────────────────────────────
 
@@ -62,7 +76,7 @@ function canResolveOrReopen(
 
 const createCommentSchema = z.object({
   commentType: z.enum(["FIELD", "SECTION", "GENERAL"]),
-  visibility: z.enum(["PUBLIC", "INTERNAL"]),
+  visibility: z.enum(COMMENT_VISIBILITIES),
   body: z.string().min(1),
   targetFieldId: z.string().uuid().optional(),
   targetSectionId: z.string().uuid().optional(),
@@ -110,9 +124,10 @@ export default async function commentsRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Visibility rule: APPLICANT cannot create INTERNAL comments
-      const isApplicantOnly = currentUser.roles.every((r) => r === "APPLICANT");
-      if (body.visibility === "INTERNAL" && isApplicantOnly) {
+      // Visibility rule: user can only create a comment with a visibility tier
+      // they are allowed to read. Applicants are limited to APPLICANT_VISIBLE.
+      const allowedVisibilities = getAllowedCommentVisibilities(currentUser.roles);
+      if (!allowedVisibilities.includes(body.visibility as CommentVisibility)) {
         return reply.status(403).send({ error: "Forbidden", statusCode: 403 });
       }
 
@@ -174,13 +189,13 @@ export default async function commentsRoutes(fastify: FastifyInstance) {
         return reply.status(403).send({ error: "Forbidden", statusCode: 403 });
       }
 
-      // APPLICANT: never see INTERNAL comments
-      const isApplicantOnly = currentUser.roles.every((r) => r === "APPLICANT");
+      // Filter to visibilities the current user is allowed to see.
+      const allowedVisibilities = getAllowedCommentVisibilities(currentUser.roles);
 
       const comments = await prisma.proposalComment.findMany({
         where: {
           proposalId: params.id,
-          ...(isApplicantOnly ? { visibility: { not: "INTERNAL" } } : {}),
+          visibility: { in: allowedVisibilities },
         },
         orderBy: { createdAt: "asc" },
       });
