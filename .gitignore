@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Agent orchestration scratch (task briefs, reports, review packages)
+.superpowers/
+
 # Environment and secrets
 .env
 .env.*
