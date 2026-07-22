@@ -194,12 +194,27 @@ export interface HistoryEntry {
   afterState: string | null;
 }
 
+export type CommentVisibility =
+  | 'APPLICANT_VISIBLE'
+  | 'FOCAL_AND_INTERNAL'
+  | 'RTEC_PRIVATE'
+  | 'RTEC_HEAD_ONLY'
+  | 'OFFICIAL_WORKFLOW'
+  | 'ADMIN_AUDIT_ONLY';
+
 export interface CommentPayload {
   commentType: 'GENERAL' | 'FIELD' | 'SECTION';
-  visibility: 'PUBLIC' | 'INTERNAL';
+  visibility: CommentVisibility;
   body: string;
   targetFieldId?: string;
   targetSectionId?: string;
+}
+
+export interface PaginatedResponse<T> {
+  total: number;
+  limit: number;
+  offset: number;
+  items: T[];
 }
 
 export interface ProposalVersionSummary {
@@ -633,7 +648,9 @@ export interface QueueProposal {
 export interface QueueResponse {
   queueKey: QueueKey;
   label: string;
-  count: number;
+  total: number;
+  limit: number;
+  offset: number;
   proposals: QueueProposal[];
 }
 

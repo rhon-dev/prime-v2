@@ -225,6 +225,12 @@ export default function ProposalFormPage() {
     saveFields(fieldValues, proposalId);
   }
 
+  function handleFieldBlur(field: FormField) {
+    if (field.isRequired && isFieldEmpty(field)) {
+      setFieldErrors((prev) => ({ ...prev, [field.id]: true }));
+    }
+  }
+
   async function handleFileChange(formFieldId: string, file: File | null) {
     if (!file || !proposalId) return;
     setSaveStatus("saving");
@@ -439,7 +445,9 @@ export default function ProposalFormPage() {
                   required={field.isRequired}
                   value={fieldValues[field.id] ?? ""}
                   onChange={(e) => handleFieldChange(field.id, e.target.value, field.label)}
+                  onBlur={() => handleFieldBlur(field)}
                   className={shared.input}
+                  aria-invalid={fieldErrors[field.id] ? "true" : undefined}
                 />
               )}
 
@@ -449,8 +457,10 @@ export default function ProposalFormPage() {
                   required={field.isRequired}
                   value={fieldValues[field.id] ?? ""}
                   onChange={(e) => handleFieldChange(field.id, e.target.value, field.label)}
+                  onBlur={() => handleFieldBlur(field)}
                   rows={4}
                   className={shared.textarea}
+                  aria-invalid={fieldErrors[field.id] ? "true" : undefined}
                 />
               )}
 
@@ -461,7 +471,9 @@ export default function ProposalFormPage() {
                   required={field.isRequired}
                   value={fieldValues[field.id] ?? ""}
                   onChange={(e) => handleFieldChange(field.id, e.target.value, field.label)}
+                  onBlur={() => handleFieldBlur(field)}
                   className={shared.input}
+                  aria-invalid={fieldErrors[field.id] ? "true" : undefined}
                 />
               )}
 
@@ -472,7 +484,9 @@ export default function ProposalFormPage() {
                   required={field.isRequired}
                   value={fieldValues[field.id] ?? ""}
                   onChange={(e) => handleFieldChange(field.id, e.target.value, field.label)}
+                  onBlur={() => handleFieldBlur(field)}
                   className={shared.input}
+                  aria-invalid={fieldErrors[field.id] ? "true" : undefined}
                 />
               )}
 
@@ -482,7 +496,9 @@ export default function ProposalFormPage() {
                   required={field.isRequired}
                   value={fieldValues[field.id] ?? ""}
                   onChange={(e) => handleFieldChange(field.id, e.target.value, field.label)}
+                  onBlur={() => handleFieldBlur(field)}
                   className={shared.select}
+                  aria-invalid={fieldErrors[field.id] ? "true" : undefined}
                 >
                   <option value="">— Select —</option>
                   {field.validationRules

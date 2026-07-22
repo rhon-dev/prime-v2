@@ -262,7 +262,7 @@ export default function ProposalDetailPage() {
     try {
       const payload: CommentPayload = {
         commentType,
-        visibility: "PUBLIC",
+        visibility: isApplicant ? "APPLICANT_VISIBLE" : "FOCAL_AND_INTERNAL",
         body: commentBody.trim(),
       };
       const newComment = await phase9Api.addComment(id, payload);
@@ -781,7 +781,7 @@ export default function ProposalDetailPage() {
   }
 
   const visibleComments = isApplicant
-    ? comments.filter((c) => c.visibility !== "INTERNAL")
+    ? comments.filter((c) => c.visibility === "APPLICANT_VISIBLE")
     : comments;
 
   const fieldValues = proposal.currentVersion?.fieldValues ?? [];
@@ -1330,7 +1330,7 @@ export default function ProposalDetailPage() {
                 key={comment.id}
                 role="listitem"
                 className={`${styles.blockItem} ${
-                  comment.visibility === "INTERNAL" ? styles.blockItemInternal : ""
+                  comment.visibility !== "APPLICANT_VISIBLE" ? styles.blockItemInternal : ""
                 } ${comment.isResolved ? styles.blockItemResolved : ""}`}
               >
                 <div className={styles.blockItemHead}>
@@ -1338,8 +1338,8 @@ export default function ProposalDetailPage() {
                     <p className={styles.commentBody}>{comment.body}</p>
                     <p className={styles.commentMeta}>
                       {comment.commentType}
-                      {comment.visibility === "INTERNAL" && (
-                        <span className={styles.internalFlag}>INTERNAL</span>
+                      {comment.visibility !== "APPLICANT_VISIBLE" && (
+                        <span className={styles.internalFlag}>{comment.visibility.replace(/_/g, " ")}</span>
                       )}
                       {" · "}
                       {new Date(comment.createdAt).toLocaleDateString()}

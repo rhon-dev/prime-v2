@@ -1,8 +1,10 @@
 import { useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { queuesApi, type QueueKey, type QueueResponse } from "../../lib/api";
 import StatusBadge from "../../components/ui/StatusBadge";
 import styles from "../shared.module.css";
+
+const POLL_INTERVAL_MS = 15_000; // refresh every 15s for queue pages
 
 const QUEUE_PATHS: Record<QueueKey, string> = {
   focal: "/queue",
@@ -34,18 +36,39 @@ export default function QueuePage({
   const [data, setData] = useState<QueueResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchQueue = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
+    try {
+      const result = await queuesApi.get(queueKey);
+      setData(result);
+      if (!silent) setError(null);
+    } catch (err: unknown) {
+      if (!silent) {
+        setError(err instanceof Error ? err.message : "Failed to load queue");
+      }
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, [queueKey]);
 
   useEffect(() => {
-    setLoading(true);
-    setError(null);
-    queuesApi
-      .get(queueKey)
-      .then(setData)
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Failed to load queue");
-      })
-      .finally(() => setLoading(false));
-  }, [queueKey]);
+    void fetchQueue();
+  }, [fetchQueue]);
+
+  // Poll for real-time updates
+  useEffect(() => {
+    pollRef.current = setInterval(() => {
+      void fetchQueue(true);
+    }, POLL_INTERVAL_MS);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [fetchQueue]);
 
   if (loading) {
     return <p className={styles.loading}>Loading queue…</p>;
@@ -62,7 +85,7 @@ export default function QueuePage({
           <h2 className={styles.panelTitle}>{title}</h2>
           <p className={styles.panelSubtitle}>{description}</p>
         </div>
-        <span className={styles.badgeBlue}>{data?.count ?? 0} items</span>
+        <span className={styles.badgeBlue}>{data?.total ?? 0} items</span>
       </div>
 
       {!data || data.proposals.length === 0 ? (
