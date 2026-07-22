@@ -190,14 +190,29 @@ export default async function proposalsRoutes(fastify: FastifyInstance) {
       }
       // ADMIN and REGIONAL_DIRECTOR: no filter (see all)
 
-      const proposals = await prisma.proposal.findMany({
-        where: whereClause,
-        include: { proposalType: { select: { name: true } } },
-        orderBy: { createdAt: "desc" },
-      });
+      const paginationQuery = z
+        .object({
+          limit: z.coerce.number().int().min(1).max(100).optional().default(50),
+          offset: z.coerce.number().int().min(0).optional().default(0),
+        })
+        .parse(request.query);
 
-      return reply.status(200).send(
-        proposals.map((p) => ({
+      const [proposals, total] = await Promise.all([
+        prisma.proposal.findMany({
+          where: whereClause,
+          include: { proposalType: { select: { name: true } } },
+          orderBy: { createdAt: "desc" },
+          take: paginationQuery.limit,
+          skip: paginationQuery.offset,
+        }),
+        prisma.proposal.count({ where: whereClause }),
+      ]);
+
+      return reply.status(200).send({
+        total,
+        limit: paginationQuery.limit,
+        offset: paginationQuery.offset,
+        items: proposals.map((p) => ({
           id: p.id,
           title: p.title,
           status: p.status,
@@ -205,7 +220,7 @@ export default async function proposalsRoutes(fastify: FastifyInstance) {
           createdAt: p.createdAt,
           updatedAt: p.updatedAt,
         })),
-      );
+      });
     },
   );
 

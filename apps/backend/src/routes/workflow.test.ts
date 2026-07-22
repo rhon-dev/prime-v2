@@ -629,8 +629,8 @@ describe("Workflow routes (Phase 10)", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    const proposals = response.json() as Array<{ id: string }>;
-    const ids = proposals.map((p) => p.id);
+    const body = response.json() as { items: Array<{ id: string }> };
+    const ids = body.items.map((p) => p.id);
 
     expect(ids).toContain(proposalA.id);
     expect(ids).not.toContain(proposalB.id);

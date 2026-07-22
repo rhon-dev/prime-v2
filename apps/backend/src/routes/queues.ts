@@ -64,16 +64,30 @@ export default async function queuesRoutes(fastify: FastifyInstance) {
         };
       }
 
-      const proposals = await prisma.proposal.findMany({
-        where,
-        include: { proposalType: { select: { name: true } } },
-        orderBy: { updatedAt: "desc" },
-      });
+      const paginationQuery = z
+        .object({
+          limit: z.coerce.number().int().min(1).max(100).optional().default(50),
+          offset: z.coerce.number().int().min(0).optional().default(0),
+        })
+        .parse(request.query);
+
+      const [proposals, total] = await Promise.all([
+        prisma.proposal.findMany({
+          where,
+          include: { proposalType: { select: { name: true } } },
+          orderBy: { updatedAt: "desc" },
+          take: paginationQuery.limit,
+          skip: paginationQuery.offset,
+        }),
+        prisma.proposal.count({ where }),
+      ]);
 
       return reply.status(200).send({
         queueKey,
         label: definition.label,
-        count: proposals.length,
+        total,
+        limit: paginationQuery.limit,
+        offset: paginationQuery.offset,
         proposals: proposals.map(serializeQueueProposal),
       });
     },

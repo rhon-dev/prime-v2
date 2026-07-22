@@ -413,12 +413,18 @@ describe("Proposals routes", () => {
     });
 
     expect(listResp.statusCode).toBe(200);
-    const proposals = listResp.json() as Array<{
-      id: string;
-      title: string;
-      status: string;
-      proposalType: { name: string };
-    }>;
+    const body = listResp.json() as {
+      total: number;
+      limit: number;
+      offset: number;
+      items: Array<{
+        id: string;
+        title: string;
+        status: string;
+        proposalType: { name: string };
+      }>;
+    };
+    const proposals = body.items;
 
     // All returned proposals must belong to applicant1
     const a2Proposal = proposals.find((p) => p.title === "Applicant2 Proposal TC-02");
