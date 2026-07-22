@@ -1,4 +1,4 @@
-import Fastify from "fastify";
+import Fastify, { type FastifyError } from "fastify";
 import fastifyEnv from "@fastify/env";
 import fastifyHelmet from "@fastify/helmet";
 import fastifyCors from "@fastify/cors";
@@ -38,7 +38,7 @@ import { logger, setLogLevel } from "./utils/logger.js";
 const SESSION_SLIDING_MAX_AGE_MS = 30 * 60 * 1000;
 
 export async function buildApp() {
-  const app = Fastify({ logger });
+  const app = Fastify({ loggerInstance: logger });
 
   // 1. Env validation first — app must crash before any other plugin
   //    registers if a required var is missing or invalid.
@@ -135,7 +135,7 @@ export async function buildApp() {
   await app.register(adminRoutes);
 
   // 8. Error handlers
-  app.setErrorHandler((error, _request, reply) => {
+  app.setErrorHandler<FastifyError>((error, _request, reply) => {
     app.log.error(error);
     if (error.validation || error.name === "ZodError") {
       return reply.status(400).send({ error: "Bad Request", statusCode: 400 });
