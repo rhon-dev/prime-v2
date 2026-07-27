@@ -127,7 +127,7 @@ describe("ProposalDetailPage — focal workflow actions", () => {
 
   it('TC-FOCAL-03: role="APPLICANT" shows no focal action buttons', async () => {
     renderPage("APPLICANT", "UNDER_FOCAL_REVIEW");
-    expect(await screen.findByText("Test Proposal")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /Test Proposal/ })).toBeInTheDocument();
     expect(screen.queryByLabelText("Acknowledge proposal")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Return proposal to applicant")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Endorse proposal to RTEC")).not.toBeInTheDocument();

@@ -194,11 +194,13 @@ export default async function exportRoutes(fastify: FastifyInstance) {
       if (!allowed) {
         return reply.status(403).send({ error: "Forbidden", statusCode: 403 });
       }
-      if (proposal.status !== "APPROVED") {
+      // Allow export for all terminal states (per requirements.md Req 3 & 7)
+      const terminalStates = ["APPROVED", "RETURNED", "DEFERRED", "REJECTED"];
+      if (!terminalStates.includes(proposal.status)) {
         return reply.status(409).send({
           error: "Conflict",
-          code: "NOT_APPROVED",
-          message: "Only approved proposals can be exported",
+          code: "NOT_TERMINAL_STATE",
+          message: "Only proposals in terminal states (APPROVED, RETURNED, DEFERRED, REJECTED) can be exported",
           statusCode: 409,
         });
       }
