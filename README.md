@@ -1740,6 +1740,11 @@ Build the technical foundation.
 Tasks:
 
 - Set up repository
+- Set up testing framework
+- Set up CI checks
+- Set up Docker development environment
+
+Deliverables:
 - Set up TypeScript standards
 - Set up frontend shell
 - Set up Fastify server
@@ -1749,11 +1754,6 @@ Tasks:
 - Set up logging
 - Set up error handling
 - Set up environment configuration
-- Set up testing framework
-- Set up CI checks
-- Set up Docker development environment
-
-Deliverables:
 
 - Running local environment
 - Health endpoint

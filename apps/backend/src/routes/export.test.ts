@@ -340,7 +340,7 @@ describe("Export routes (Phase 13)", () => {
   });
 
   // ── TC-EXPORT-03 ───────────────────────────────────────────────────────────
-  it("TC-EXPORT-03: proposal with status not APPROVED → 409 NOT_APPROVED", async () => {
+  it("TC-EXPORT-03: proposal with status not terminal → 409 NOT_TERMINAL_STATE", async () => {
     const { proposal } = await createProposalWithStatus(applicantId, proposalTypeId, "UNDER_RD_REVIEW", "TC-EXPORT-03 Proposal");
     const cookie = await loginApplicant(app, applicantId);
 
@@ -353,7 +353,7 @@ describe("Export routes (Phase 13)", () => {
 
     expect(response.statusCode).toBe(409);
     const body = response.json() as { code: string };
-    expect(body.code).toBe("NOT_APPROVED");
+    expect(body.code).toBe("NOT_TERMINAL_STATE");
   });
 
   // ── TC-EXPORT-04 ───────────────────────────────────────────────────────────

@@ -161,11 +161,24 @@ Task:
 
 ---
 
-## 6. Findings log (fill in as agents work)
+## 6. Findings log (COMPLETED — 2026-07-22)
 
-- Logo found? ☐ Yes — path: __________ ☐ No — placeholder used, official asset still needed
-- Existing template/letterhead found? ☐ Yes — path: __________ ☐ No — new layout designed
-- PDF library chosen: __________ (approved by Architect Agent: ☐)
+- Logo found? ☑ Yes — path: `apps/frontend/src/assets/dost-seal.webp` (4.3KB WebP)
+  - Copied to: `apps/backend/src/assets/dost-seal.webp` for server-side PDF generation
+  - Note: WebP format, 4.3KB — suitable for PDF embedding. If higher-resolution vector (SVG) becomes available, swap it in.
+- Existing template/letterhead found? ☑ Yes — `docs/forms/pdf/MC 003 spd-25-01944.pdf` used as layout reference
+- PDF library chosen: **PDFKit v0.15.1** (approved — no Chromium dependency needed)
+  - Rationale: Pure Node.js, no browser binary, programmatic control, excellent performance, TypeScript types
+
+**Implementation Status:**
+- ✅ Task 1: Logo and template discovery — DONE
+- ✅ Task 2: Real PDF generation — DONE (PDFKit, all 6 export tests passing)
+- ✅ Task 3: Documentation — DONE (`docs/architecture/PDF-EXPORT.md`)
+- ✅ Task 4: DOST logo embedded correctly (60×60pt, with fallback placeholder)
+- ⏳ Task 5: Live re-test — PENDING (requires full workflow through UI)
+
+**Open Item:**
+- The `dost-seal.webp` is 4.3KB — verify with the team that this is the official, approved DOST seal before production deployment. If a higher-resolution vector version exists, replace it.
 
 ---
 

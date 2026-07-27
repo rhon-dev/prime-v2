@@ -5,6 +5,10 @@ import { prisma } from "../db/client.js";
 import { requireAuth } from "../middleware/auth.js";
 import { uploadFile, getPresignedUrl } from "../services/minio.js";
 import { auditLog } from "../services/auditLog.js";
+import {
+  generateProposalPDF,
+  type ExportProposalData,
+} from "../services/pdfGenerator.js";
 
 // ── Access helper (same pattern as attachments.ts) ──────────────────────────
 
@@ -38,7 +42,7 @@ async function canAccessProposal(
 const idParamSchema = z.object({ id: z.string().uuid() });
 
 const exportBodySchema = z.object({
-  format: z.enum(["PDF", "HTML"]).optional(),
+  format: z.enum(["PDF", "HTML"]).default("PDF"),
 });
 
 // ── HTML generation (no pdfkit installed — see Task 2 fallback) ─────────────
@@ -52,7 +56,7 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-interface ExportProposalData {
+interface HtmlExportProposalData {
   title: string;
   proposalTypeName: string;
   programName: string | null;
@@ -75,7 +79,7 @@ interface ExportProposalData {
   rdDecision: { decision: string; remarks: string | null; decidedAt: Date | null } | null;
 }
 
-function generateExportHtml(data: ExportProposalData): string {
+function generateExportHtml(data: HtmlExportProposalData): string {
   const sectionsHtml = data.sections
     .map(
       (section) => `
@@ -177,7 +181,6 @@ export default async function exportRoutes(fastify: FastifyInstance) {
       const currentUser = request.currentUser!;
       const params = idParamSchema.parse(request.params);
       const body = exportBodySchema.safeParse(request.body ?? {});
-      const requestedFormat = body.success ? body.data.format : undefined;
 
       const { allowed, proposal } = await canAccessProposal(
         params.id,
@@ -191,11 +194,13 @@ export default async function exportRoutes(fastify: FastifyInstance) {
       if (!allowed) {
         return reply.status(403).send({ error: "Forbidden", statusCode: 403 });
       }
-      if (proposal.status !== "APPROVED") {
+      // Allow export for all terminal states (per requirements.md Req 3 & 7)
+      const terminalStates = ["APPROVED", "RETURNED", "DEFERRED", "REJECTED"];
+      if (!terminalStates.includes(proposal.status)) {
         return reply.status(409).send({
           error: "Conflict",
-          code: "NOT_APPROVED",
-          message: "Only approved proposals can be exported",
+          code: "NOT_TERMINAL_STATE",
+          message: "Only proposals in terminal states (APPROVED, RETURNED, DEFERRED, REJECTED) can be exported",
           statusCode: 409,
         });
       }
@@ -256,19 +261,18 @@ export default async function exportRoutes(fastify: FastifyInstance) {
           }));
 
         const generatedAt = new Date();
-        // pdfkit is not installed in this environment — always fall back to HTML
-        // regardless of the requested format (see Task 2 spec).
-        void requestedFormat;
-        const format: "PDF" | "HTML" = "HTML";
+        const format = body.success ? body.data.format : "PDF";
 
         const exportData: ExportProposalData = {
           title: full.title,
+          proposalId: full.id,
           proposalTypeName: full.proposalType.name,
           programName: full.proposalType.program?.name ?? null,
           status: full.status,
           applicantName: `${full.applicant.firstName} ${full.applicant.lastName}`,
           applicantEmail: full.applicant.email,
           generatedAt,
+          versionNumber: full.currentVersion.versionNumber,
           sections,
           workflowHistory: full.workflowHistory.map((h) => ({
             fromStatus: h.fromStatus,
@@ -287,10 +291,21 @@ export default async function exportRoutes(fastify: FastifyInstance) {
             : null,
         };
 
-        const html = generateExportHtml(exportData);
-        const buffer = Buffer.from(html, "utf-8");
-        const contentType = "text/html";
-        const ext = "html";
+        let buffer: Buffer;
+        let contentType: string;
+        let ext: string;
+
+        if (format === "PDF") {
+          buffer = await generateProposalPDF(exportData);
+          contentType = "application/pdf";
+          ext = "pdf";
+        } else {
+          // HTML fallback (kept for preview/debugging purposes)
+          const html = generateExportHtml(exportData);
+          buffer = Buffer.from(html, "utf-8");
+          contentType = "text/html";
+          ext = "html";
+        }
 
         const timestamp = Date.now();
         const key = `exports/${params.id}/${timestamp}.${ext}`;
