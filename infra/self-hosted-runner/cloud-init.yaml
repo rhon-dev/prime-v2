@@ -1,0 +1,21 @@
+#cloud-config
+package_update: true
+packages:
+  - curl
+  - jq
+  - tar
+  - gzip
+  - git
+  - ca-certificates
+  - libicu
+runcmd:
+  - mkdir -p /opt/actions-runner
+  - cd /opt/actions-runner
+  - export RUNNER_VERSION="2.305.0"
+  - curl -O -L https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz
+  - tar xzf ./actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz
+  - chmod +x ./config.sh ./run.sh
+  - echo "# Placeholder: user must supply REGISTRATION_TOKEN and REPO_URL via metadata or after boot"
+  - echo "Runner node initialized"
+
+# After cloud-init completes, run the setup-runner.sh with registration token and repo URL

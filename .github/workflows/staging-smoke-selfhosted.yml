@@ -1,0 +1,41 @@
+name: Staging Smoke Tests (self-hosted fallback)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - docs/staging-playwright
+
+jobs:
+  playwright-smoke-selfhosted:
+    runs-on: [self-hosted, linux]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        working-directory: tools/smoke/playwright
+        run: |
+          npm ci
+          npm run install-playwright-browsers
+
+      - name: Run Playwright smoke tests
+        working-directory: tools/smoke/playwright
+        env:
+          BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+          STAFF_EMAIL: ${{ secrets.STAGING_STAFF_EMAIL }}
+          STAFF_PASSWORD: ${{ secrets.STAGING_STAFF_PASSWORD }}
+        run: |
+          npx playwright test --reporter=html
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: tools/smoke/playwright/playwright-report
